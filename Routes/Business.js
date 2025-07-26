@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const BusinessAccount = require('../Model/BusinessAccount');
-const BusinessListing = require('../Model/BusinessListing');
+const Business = require('../Model/BusinessAccount');
 
 // POST /business/register
 router.post('/register', async (req, res) => {
@@ -10,12 +9,12 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ message: 'Email, phone, and password are required.' });
   }
 
-  const existing = await BusinessAccount.findOne({ email });
+  const existing = await Business.findOne({ email });
   if (existing) {
     return res.status(409).json({ message: 'Business account already exists with this email.' });
   }
 
-  const account = new BusinessAccount({ email, password, phone });
+  const account = new Business({ email, password, phone });
   await account.save();
 
   res.status(201).json({ message: 'Account created successfully', accountId: account._id });
@@ -25,7 +24,7 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
-  const account = await BusinessAccount.findOne({ email });
+  const account = await Business.findOne({ email });
   if (!account || account.password !== password) {
     return res.status(401).json({ message: 'Invalid credentials' });
   }
@@ -36,6 +35,7 @@ router.post('/login', async (req, res) => {
 // POST /business/list
 router.post('/list', async (req, res) => {
   const {
+    email,
     organizationName,
     address,
     contact,
@@ -46,29 +46,31 @@ router.post('/list', async (req, res) => {
     mapLocation
   } = req.body;
 
-  if (
-    !organizationName || !address?.street || !address?.city || !address?.state ||
-    !contact?.email || !contact?.phone || !logoUrl || !description || !images?.length || !mapLocation
-  ) {
-    return res.status(400).json({ message: 'All required fields must be filled.' });
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required to update listing.' });
   }
 
   try {
-    const listing = new BusinessListing({
-      organizationName,
-      address,
-      contact,
-      logoUrl,
-      description,
-      images,
-      website,
-      mapLocation
-    });
+    const updated = await Business.findOneAndUpdate(
+      { email },
+      {
+        organizationName,
+        address,
+        contact,
+        logoUrl,
+        description,
+        images,
+        website,
+        mapLocation
+      },
+      { new: true }
+    );
 
-    await listing.save();
-    res.status(201).json({ message: 'Business listed successfully', listing });
+    if (!updated) return res.status(404).json({ message: 'Business not found' });
+
+    res.status(200).json({ message: 'Business listing updated', listing: updated });
   } catch (error) {
-    console.error('Error while listing business:', error);
+    console.error('Error while updating business listing:', error);
     res.status(500).json({ message: 'Server error while listing business.' });
   }
 });
@@ -76,13 +78,12 @@ router.post('/list', async (req, res) => {
 // GET /business/listall
 router.get('/listall', async (req, res) => {
   try {
-    const listings = await BusinessListing.find({});
+    const listings = await Business.find({ organizationName: { $ne: null } });
     res.status(200).json({ message: 'All business listings fetched successfully', listings });
   } catch (error) {
     console.error('Error fetching listings:', error);
     res.status(500).json({ message: 'Server error while fetching listings.' });
   }
 });
-
 
 module.exports = router;
