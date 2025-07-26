@@ -17,6 +17,9 @@ mongoose.connect(MONGO_URI)
 const userRoute = require('./Routes/Register');
 app.use('/users', userRoute);
 
+const businessRoute = require('./Routes/Business'); // ✅ added
+app.use('/business', businessRoute);               // ✅ added
+
 app.get('/', (req, res) => {
   res.send('🚀 API is working and connected to MongoDB!');
 });
